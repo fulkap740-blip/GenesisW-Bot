@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """
-GenesisW Bot - Complete
-Phone: +996706161234
-Bot: 8576112278:AAE35GWqoHpsQ9bdB069f__LDShXkNeHXro
-API: 22446695 / 64587d7e1431a0d7e1959387faa4958a
+GenesisW Search - Professional Version
 """
 
-import os
 import asyncio
 import logging
 import time
@@ -14,268 +10,181 @@ from datetime import datetime
 from telethon import TelegramClient, events, functions
 from collections import defaultdict
 
-# ========== ВСЕ ДАННЫЕ ==========
+# ========== НАСТРОЙКИ ==========
 API_ID = 22446695
 API_HASH = "64587d7e1431a0d7e1959387faa4958a"
-PHONE_NUMBER = "+996706161234"  # Твой номер
 BOT_TOKEN = "8576112278:AAE35GWqoHpsQ9bdB069f__LDShXkNeHXro"
 
-OWNER_NAME = "Gen Kai"
-BOT_USERNAME = "genesisw_bot"
-CRYPTO_WALLET = "TKMBNpspKG6uQZi8J9siyChhX6BrZJnJr7"
 ADMIN_PASSWORD = "Su54us"
-# ================================
+CRYPTO_WALLET = "TKMBNpspKG6uQZi8J9siyChhX6BrZJnJr7"
+# ==============================
 
-print(f"""
-╔══════════════════════════════════════╗
-║        🦾 GENESISW BOT v3.0         ║
-║        Phone: {PHONE_NUMBER}      ║
-║        Bot: {BOT_TOKEN[:15]}...     ║
-║        Owner: {OWNER_NAME}          ║
-╚══════════════════════════════════════╝
-""")
+print("🚀 GenesisW Search запускается...")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Лимиты
+# Система
 SEARCH_LIMIT = 20
 user_searches = defaultdict(int)
 admin_users = set()
+search_engine = None
+last_command = {}
 
-# Защита от спама
-last_action = {}
-ACTION_DELAY = 3
-
-# Клиент для поиска
-search_client = None
-bot_client = None
-
-async def init_search():
-    """Инициализация поискового клиента"""
-    global search_client
-    
+# Инициализация поиска
+async def init_engine():
+    global search_engine
     try:
-        search_client = TelegramClient('search_session', API_ID, API_HASH)
-        await search_client.start(phone=PHONE_NUMBER)
-        me = await search_client.get_me()
-        logger.info(f"✅ Search client ready: @{me.username}")
-        return True
-    except Exception as e:
-        logger.error(f"❌ Search init failed: {e}")
+        if os.path.exists('session.auth'):
+            search_engine = TelegramClient('session.auth', API_ID, API_HASH)
+            await search_engine.start()
+            return True
         return False
-
-async def find_channels(keyword, limit=15):
-    """Поиск каналов"""
-    if not search_client:
-        return None
-    
-    try:
-        result = await search_client(functions.contacts.SearchRequest(
-            q=keyword,
-            limit=limit
-        ))
-        
-        channels = []
-        for chat in result.chats:
-            if hasattr(chat, 'title'):
-                channels.append({
-                    'title': chat.title,
-                    'username': getattr(chat, 'username', None),
-                    'members': getattr(chat, 'participants_count', 0),
-                    'verified': getattr(chat, 'verified', False),
-                    'scam': getattr(chat, 'scam', False)
-                })
-        
-        channels.sort(key=lambda x: x['members'], reverse=True)
-        return channels[:limit]
-        
-    except Exception as e:
-        logger.error(f"Search error: {e}")
-        return None
-
-async def send_safe(event, text):
-    """Безопасная отправка"""
-    user_id = event.sender_id
-    now = time.time()
-    
-    if user_id in last_action:
-        if now - last_action[user_id] < ACTION_DELAY:
-            return False
-    
-    last_action[user_id] = now
-    
-    try:
-        await event.respond(text)
-        return True
     except:
         return False
 
+# Поиск каналов
+async def search_channels(query):
+    if not search_engine:
+        return None
+    
+    try:
+        result = await search_engine(functions.contacts.SearchRequest(
+            q=query,
+            limit=12
+        ))
+        
+        results = []
+        for chat in result.chats:
+            if hasattr(chat, 'title'):
+                results.append({
+                    'name': chat.title[:35],
+                    'username': getattr(chat, 'username', None),
+                    'members': getattr(chat, 'participants_count', 0),
+                    'verified': getattr(chat, 'verified', False)
+                })
+        
+        results.sort(key=lambda x: x['members'], reverse=True)
+        return results
+    except:
+        return None
+
+# Запуск бота
 async def main():
     try:
-        # Инициализация бота
-        bot_client = TelegramClient('bot_session', API_ID, API_HASH)
-        await bot_client.start(bot_token=BOT_TOKEN)
-        bot_me = await bot_client.get_me()
-        print(f"✅ Bot started: @{bot_me.username}")
+        bot = TelegramClient('genesis.bot', API_ID, API_HASH)
+        await bot.start(bot_token=BOT_TOKEN)
         
-        # Инициализация поиска
-        search_ready = await init_search()
+        me = await bot.get_me()
+        print(f"✅ Бот запущен: @{me.username}")
         
         # Состояния
-        user_state = {}
+        user_mode = {}
         
-        @bot_client.on(events.NewMessage(pattern='/start'))
+        @bot.on(events.NewMessage(pattern='/start'))
         async def start_cmd(event):
             user_id = event.sender_id
             if user_id not in user_searches:
                 user_searches[user_id] = 0
             
-            search_status = "✅ РЕАЛЬНЫЙ ПОИСК АКТИВЕН" if search_ready else "⚠️ ПОИСК НЕДОСТУПЕН"
-            
-            await send_safe(event, f"""
-{search_status}
+            await event.respond(f"""
+🔍 **GENESISW CHANNEL SEARCH**
 
-🎯 GenesisW Search System
-📞 Аккаунт: {PHONE_NUMBER}
-👑 Владелец: {OWNER_NAME}
+Мощный поиск телеграм каналов по ключевым словам
 
-🔍 БЕСПЛАТНЫЙ ПОИСК:
-• {SEARCH_LIMIT} запросов
-• Реальные результаты
-• Топ каналы
+🎯 **Ваш статус:**
+• Поисков использовано: `{user_searches[user_id]}/{SEARCH_LIMIT}`
+• Осталось: `{SEARCH_LIMIT - user_searches[user_id]}`
 
-📊 Ваш статус:
-Поисков использовано: {user_searches[user_id]}/{SEARCH_LIMIT}
-Осталось: {SEARCH_LIMIT - user_searches[user_id]}
+⚡ **Команды:**
+`/search` - поиск каналов
+`/premium` - премиум доступ
+`/help` - помощь
 
-📋 КОМАНДЫ:
-/search - найти каналы
-/premium - безлимит
-/admin - админка
-/help - помощь
-
-💎 @{BOT_USERNAME}
+💎 **Система GenesisW v3.0**
             """)
         
-        @bot_client.on(events.NewMessage(pattern='/search'))
+        @bot.on(events.NewMessage(pattern='/search'))
         async def search_cmd(event):
             user_id = event.sender_id
             
-            if not search_ready:
-                await send_safe(event, "⚠️ Поиск временно недоступен")
-                return
-            
-            if user_id not in admin_users and user_searches[user_id] >= SEARCH_LIMIT:
-                await send_safe(event, f"""
-❌ ЛИМИТ ЗАВЕРШЕН
+            if user_id not in admin_users:
+                if user_searches[user_id] >= SEARCH_LIMIT:
+                    await event.respond(f"""
+❌ **ЛИМИТ ИСЧЕРПАН**
 
-Использовано: {user_searches[user_id]}/{SEARCH_LIMIT}
+Вы использовали {SEARCH_LIMIT} бесплатных поисков.
 
-💰 ПРЕМИУМ ДОСТУП:
+💰 **ПРЕМИУМ ДОСТУП:**
 • Безлимитный поиск
 • Приоритетная обработка
 • Расширенные фильтры
 
-💳 USDT TRC20:
-{CRYPTO_WALLET}
+💳 **Оплата USDT TRC20:**
+`{CRYPTO_WALLET}`
 
-Команда: /premium
-                """)
-                return
+📨 Отправьте `/premium` для выбора тарифа
+                    """)
+                    return
             
-            user_state[user_id] = 'awaiting_keyword'
-            await send_safe(event, "🔍 ВВЕДИТЕ КЛЮЧЕВОЕ СЛОВО ДЛЯ ПОИСКА:")
+            user_mode[user_id] = 'awaiting_query'
+            await event.respond("🔍 **Введите ключевое слово для поиска:**")
         
-        @bot_client.on(events.NewMessage(pattern='/admin'))
-        async def admin_cmd(event):
-            user_id = event.sender_id
-            user_state[user_id] = 'awaiting_admin_pass'
-            await send_safe(event, "Пиздуй нахуй 😎\n\n🔐 ВВЕДИ ПАРОЛЬ АДМИНА:")
-        
-        @bot_client.on(events.NewMessage(pattern='/premium'))
+        @bot.on(events.NewMessage(pattern='/premium'))
         async def premium_cmd(event):
-            await send_safe(event, f"""
-💰 ПРЕМИУМ СИСТЕМА GENESISW
+            await event.respond(f"""
+💰 **ПРЕМИУМ ДОСТУП GENESISW**
 
-ТАРИФЫ (USDT TRC20):
-🥉 BASIC - 10 USDT (30 дней)
-• Безлимитный поиск
-• Базовые фильтры
+**ТАРИФЫ (USDT TRC20):**
+• **BASIC** - 10 USDT (30 дней)
+• **ADVANCED** - 25 USDT (90 дней)  
+• **PRO** - 50 USDT (180 дней)
+• **ULTIMATE** - 100 USDT (пожизненно)
 
-🥈 ADVANCED - 25 USDT (90 дней)
-• Verified фильтр
-• Экспорт данных
-• Приоритет
+💳 **Кошелек для оплаты:**
+`{CRYPTO_WALLET}`
 
-🥇 PRO - 50 USDT (180 дней)
-• Excel экспорт
-• Расширенный анализ
-• Высокий приоритет
-
-👑 ULTIMATE - 100 USDT (ПОЖИЗНЕННО)
-• Все функции PRO
-• API доступ
-• Персональная поддержка
-
-💳 КОШЕЛЕК ДЛЯ ОПЛАТЫ:
-{CRYPTO_WALLET}
-
-📨 После оплаты отправьте хэш транзакции
+📋 **После оплаты:**
+1. Сохраните хэш транзакции
+2. Отправьте хэш боту
+3. Получите премиум доступ
             """)
         
-        @bot_client.on(events.NewMessage(pattern='/help'))
+        @bot.on(events.NewMessage(pattern='/admin'))
+        async def admin_cmd(event):
+            user_id = event.sender_id
+            user_mode[user_id] = 'admin_auth'
+            await event.respond("🔐 **Введите пароль доступа:**")
+        
+        @bot.on(events.NewMessage(pattern='/help'))
         async def help_cmd(event):
-            await send_safe(event, f"""
-🆘 СПРАВКА GENESISW
+            await event.respond("""
+🆘 **ПОМОЩЬ ПО ИСПОЛЬЗОВАНИЮ**
 
-📋 ОСНОВНЫЕ КОМАНДЫ:
-/search - поиск каналов
-/start - информация о системе
-/premium - премиум доступ
-/admin - админ панель
-/help - эта справка
-
-🔍 КАК ИСКАТЬ:
-1. Отправьте /search
+**Как использовать:**
+1. Отправьте команду `/search`
 2. Введите ключевое слово
-3. Получите результаты
+3. Получите результаты поиска
 
-🎯 ПРИМЕРЫ ЗАПРОСОВ:
+**Примеры запросов:**
 • психология
 • криптовалюта
 • фитнес
-• новости
 • программирование
+• новости
 
-📊 ЛИМИТЫ:
-• Бесплатно: {SEARCH_LIMIT} поисков
+**Лимиты:**
+• Бесплатно: 20 поисков
 • Премиум: безлимит
 
-👤 {OWNER_NAME}
-🤖 @{BOT_USERNAME}
+**Команды:**
+`/start` - информация
+`/search` - поиск каналов
+`/premium` - премиум доступ
+`/help` - помощь
             """)
         
-        @bot_client.on(events.NewMessage(pattern='/stats'))
-        async def stats_cmd(event):
-            user_id = event.sender_id
-            if user_id in admin_users:
-                total_users = len(user_searches)
-                total_searches = sum(user_searches.values())
-                
-                await send_safe(event, f"""
-📊 СИСТЕМНАЯ СТАТИСТИКА:
-
-👥 Пользователей: {total_users}
-🔍 Всего поисков: {total_searches}
-👑 Админов: {len(admin_users)}
-🔧 Поиск: {'✅' if search_ready else '❌'}
-📞 Номер: {PHONE_NUMBER}
-⏰ Время: {datetime.now().strftime('%H:%M:%S')}
-💎 Владелец: {OWNER_NAME}
-                """)
-        
-        @bot_client.on(events.NewMessage())
+        @bot.on(events.NewMessage())
         async def message_handler(event):
             user_id = event.sender_id
             text = event.text.strip() if event.text else ""
@@ -283,144 +192,99 @@ async def main():
             if not text or text.startswith('/'):
                 return
             
-            # Обработка пароля админа
-            if user_id in user_state and user_state[user_id] == 'awaiting_admin_pass':
+            # Аутентификация админа
+            if user_id in user_mode and user_mode[user_id] == 'admin_auth':
                 if text == ADMIN_PASSWORD:
                     admin_users.add(user_id)
                     user_searches[user_id] = 0
-                    del user_state[user_id]
-                    
-                    await send_safe(event, f"""
-✅ АДМИН ДОСТУП АКТИВИРОВАН!
-
-Владелец: {OWNER_NAME}
-Номер: {PHONE_NUMBER}
-Статус: 👑 АДМИН
-Лимит: ∞ (безлимит)
-
-📋 Команды админа:
-/stats - статистика
-/help - справка
-
-🔐 Пароль: {ADMIN_PASSWORD}
-                    """)
+                    del user_mode[user_id]
+                    await event.respond("✅ **АДМИН ДОСТУП АКТИВИРОВАН**")
                 else:
-                    await send_safe(event, "❌ НЕВЕРНЫЙ ПАРОЛЬ!")
-                    del user_state[user_id]
+                    await event.respond("❌ Неверный пароль")
+                    del user_mode[user_id]
                 return
             
             # Обработка поискового запроса
-            if user_id in user_state and user_state[user_id] == 'awaiting_keyword':
-                keyword = text.lower().strip()
+            if user_id in user_mode and user_mode[user_id] == 'awaiting_query':
+                query = text.lower().strip()
                 
-                if len(keyword) < 2:
-                    await send_safe(event, "⚠️ Минимум 2 символа")
-                    del user_state[user_id]
+                if len(query) < 2:
+                    await event.respond("⚠️ Введите минимум 2 символа")
+                    del user_mode[user_id]
                     return
                 
                 # Обновляем счетчик
                 if user_id not in admin_users:
                     user_searches[user_id] += 1
                 
-                del user_state[user_id]
+                del user_mode[user_id]
                 
-                searches_left = SEARCH_LIMIT - user_searches[user_id]
-                if user_id in admin_users:
-                    searches_left = "∞"
+                await event.respond(f"🔍 **Поиск:** `{query}`\n⏳ Обработка...")
                 
-                await send_safe(event, f"🔍 ПОИСК: '{keyword}'\n⏳ Обработка...")
+                # Выполняем поиск
+                results = await search_channels(query)
                 
-                # Выполняем реальный поиск
-                channels = await find_channels(keyword, 12)
-                
-                if channels is None:
-                    await send_safe(event, f"""
-⚠️ ОШИБКА ПОИСКА
-
-По запросу '{keyword}' возникла ошибка.
-
-📊 Статистика:
-• Использовано: {user_searches[user_id]}/{SEARCH_LIMIT}
-• Осталось: {searches_left}
-• Статус: {'Админ' if user_id in admin_users else 'Обычный'}
-                    """)
-                elif channels:
-                    total = len(channels)
-                    verified = sum(1 for c in channels if c['verified'])
+                if results:
+                    total = len(results)
+                    verified = sum(1 for r in results if r['verified'])
                     
                     response = f"""
-✅ ПОИСК ЗАВЕРШЕН
+✅ **ПОИСК ЗАВЕРШЕН**
 
-Запрос: {keyword}
-Найдено: {total} каналов
-Verified: {verified}
+**Запрос:** `{query}`
+**Найдено каналов:** {total}
+**Верифицированных:** {verified}
 
-📋 РЕЗУЛЬТАТЫ:
+📋 **Результаты:**
 """
-                    for i, ch in enumerate(channels[:5], 1):
-                        name = ch['title'][:35]
-                        username = f"@{ch['username']}" if ch['username'] else "нет @"
-                        members = f"{ch['members']:,}" if ch['members'] > 0 else "?"
-                        marks = ""
-                        if ch['verified']:
-                            marks += " ✅"
-                        if ch['scam']:
-                            marks += " ⚠️"
-                        
-                        response += f"\n{i}. {name}{marks}"
-                        response += f"\n   👥 {members} | {username}\n"
+                    for i, item in enumerate(results[:5], 1):
+                        marks = " ✅" if item['verified'] else ""
+                        username = f"`@{item['username']}`" if item['username'] else "🔒 Приватный"
+                        response += f"\n{i}. **{item['name']}**{marks}"
+                        response += f"\n   👥 {item['members']:,} | {username}\n"
                     
                     if total > 5:
-                        response += f"\n📈 ... и еще {total-5} каналов"
+                        response += f"\n📈 *... и еще {total-5} каналов*"
                     
-                    # Информация о лимитах
+                    # Статистика пользователя
                     if user_id not in admin_users:
                         used = user_searches[user_id]
-                        limit = SEARCH_LIMIT
-                        response += f"\n\n📊 ВАШ ЛИМИТ: {used}/{limit}"
+                        left = SEARCH_LIMIT - used
+                        response += f"\n\n📊 **Ваш лимит:** {used}/{SEARCH_LIMIT}"
                         
-                        if used >= limit:
-                            response += f"\n❌ ЛИМИТ ИСЧЕРПАН! /premium"
-                        elif used >= limit * 0.8:
-                            response += f"\n⚠️ Лимит почти закончен! /premium"
+                        if left <= 5:
+                            response += f"\n⚠️ *Лимит почти исчерпан!*"
                     
-                    response += f"\n\n💎 Премиум: /premium"
-                    response += f"\n👑 Админ: /admin"
+                    response += f"\n\n💎 **Премиум доступ:** /premium"
                     
-                    await send_safe(event, response)
+                    await event.respond(response)
                 else:
-                    await send_safe(event, f"""
-❌ РЕЗУЛЬТАТЫ ПОИСКА
+                    await event.respond(f"""
+❌ **РЕЗУЛЬТАТЫ ПОИСКА**
 
-По запросу '{keyword}' ничего не найдено.
+По запросу `{query}` ничего не найдено.
 
-💡 Попробуйте:
-• психология
-• крипта
-• фитнес
-• новости
-• спорт
-• музыка
+💡 **Попробуйте:**
+• Более общие слова
+• Английские термины
+• Популярные темы
 
-📊 Поисков: {user_searches[user_id]}/{SEARCH_LIMIT}
+📊 **Поисков использовано:** {user_searches[user_id]}/{SEARCH_LIMIT}
                     """)
                 return
         
-        print("\n" + "="*60)
-        print("🚀 GENESISW BOT ЗАПУЩЕН УСПЕШНО!")
-        print("="*60)
-        print(f"📞 Телефон: {PHONE_NUMBER}")
-        print(f"🤖 Бот: @{bot_me.username}")
-        print(f"🔍 Поиск: {'✅ ГОТОВ' if search_ready else '❌ ОШИБКА'}")
-        print(f"👑 Админ пароль: {ADMIN_PASSWORD}")
-        print(f"💳 Кошелек: {CRYPTO_WALLET}")
-        print("="*60)
-        print("\n🎯 ОТПРАВЬТЕ /start В ТЕЛЕГРАМ ДЛЯ НАЧАЛА")
+        print("\n" + "="*50)
+        print("🚀 GENESISW SEARCH SYSTEM ACTIVATED")
+        print("="*50)
+        print("🔍 Professional Telegram Channel Search")
+        print("💰 Premium: USDT TRC20 payments")
+        print("👑 Admin access: /admin")
+        print("="*50)
         
-        await bot_client.run_until_disconnected()
+        await bot.run_until_disconnected()
         
     except Exception as e:
-        print(f"❌ FATAL ERROR: {e}")
+        print(f"❌ System error: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
