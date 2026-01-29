@@ -7,9 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Проверяем файлы при запуске
-RUN echo "=== Docker build ===" && \
-    ls -la && \
-    echo "==================="
-
 CMD ["python", "main.py"]
