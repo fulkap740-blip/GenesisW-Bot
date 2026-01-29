@@ -1,11 +1,19 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "NIXPACKS",
+    "buildCommand": "pip install telethon==1.34.0",
+    "nixpacksConfig": {
+      "assets": {
+        "genesis_session.session": "./genesis_session.session"
+      }
+    }
   },
-  "deploy": {
-    "numReplicas": 1,
-    "restartPolicyType": "ON_FAILURE"
-  },
-  "files": ["genesis_session.session"]
+  "volumes": [
+    {
+      "name": "session-storage",
+      "mountPath": "/app/genesis_session.session",
+      "source": "local-file"
+    }
+  ]
 }
