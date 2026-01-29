@@ -2,17 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Установка зависимостей
-RUN pip install --no-cache-dir telethon==1.34.0
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем ВСЕ файлы из репозитория
 COPY . .
 
-# Создаем сессию если её нет (автоматически)
-RUN if [ ! -f genesis_session.session ]; then \
-    echo "⚠️ Session file not found, creating dummy..."; \
-    touch genesis_session.session; \
-    fi
+# Проверяем файлы при запуске
+RUN echo "=== Docker build ===" && \
+    ls -la && \
+    echo "==================="
 
-# Запускаем бота
 CMD ["python", "main.py"]
