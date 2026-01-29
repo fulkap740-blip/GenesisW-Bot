@@ -2,13 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy files
-COPY requirements.txt .
-COPY main.py .
-COPY genesis_session.session .
+# Установка зависимостей
+RUN pip install --no-cache-dir telethon==1.34.0
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Копируем ВСЕ файлы из репозитория
+COPY . .
 
-# Run bot
+# Создаем сессию если её нет (автоматически)
+RUN if [ ! -f genesis_session.session ]; then \
+    echo "⚠️ Session file not found, creating dummy..."; \
+    touch genesis_session.session; \
+    fi
+
+# Запускаем бота
 CMD ["python", "main.py"]
