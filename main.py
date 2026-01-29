@@ -1,172 +1,132 @@
 #!/usr/bin/env python3
 """
-GenesisW Bot - ULTIMATE WORKING VERSION
-NO DUPLICATES | REAL SEARCH
+GenesisW Bot - IMBA WORKING VERSION
+РАБОЧИЙ ПОИСК • НЕТ ДУБЛИРОВАНИЯ • ВСЁ ВКЛЮЧЕНО
 """
 
 import os
 import asyncio
-import logging
 import time
 from telethon import TelegramClient, events, functions, types
-from collections import defaultdict
 
-# ========== CONFIG ==========
+# ========== КОНФИГ ==========
 API_ID = int(os.environ.get("API_ID", "22446695"))
-API_HASH = os.environ.get("API_HASH", "64587d7e1431a0d7e1959387faa4958a"))
+API_HASH = os.environ.get("API_HASH", "64587d7e1431a0d7e1959387faa4958a")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8576112278:AAE35GWqoHpsQ9bdB069f__LDShXkNeHXro")
 PHONE_NUMBER = os.environ.get("PHONE_NUMBER", "+996706161234")
-
 ADMIN_PASS = "Su54us"
 CRYPTO_WALLET = "TKMBNpspKG6uQZi8J9siyChhX6BrZJnJr7"
 SEARCH_LIMIT = 20
 # ============================
 
 print("\n" + "="*70)
-print("🚀 GENESISW BOT - ULTIMATE VERSION")
+print("🚀 GENESISW BOT - IMBA VERSION")
 print("="*70)
 
-# Минимальное логирование
-logging.basicConfig(level=logging.WARNING)
-logger = logging.getLogger(__name__)
-
 # ========== ФИКС ДУБЛИРОВАНИЯ ==========
-# Глобальный словарь для отслеживания последних команд
-LAST_COMMANDS = {}
-COMMAND_TIMEOUT = 3  # секунды
-
-# Хранилище данных
+last_actions = {}
 user_data = {}
 admin_users = set()
 
-# Один клиент для всего
-client = None
-
-def check_duplicate(user_id: int, command: str) -> bool:
-    """Проверяет дублирование команд"""
-    key = f"{user_id}_{command}"
-    current_time = time.time()
+def block_duplicate(user_id, action):
+    """Блокирует дублирование"""
+    key = f"{user_id}_{action}"
+    now = time.time()
     
-    if key in LAST_COMMANDS:
-        if current_time - LAST_COMMANDS[key] < COMMAND_TIMEOUT:
-            print(f"⚠️ Duplicate blocked: {key}")
+    if key in last_actions:
+        if now - last_actions[key] < 2:  # 2 секунды задержки
             return True
     
-    LAST_COMMANDS[key] = current_time
+    last_actions[key] = now
     return False
 
-async def init_telegram():
-    """Инициализация Telegram клиента"""
+# ========== ТЕЛЕГРАМ КЛИЕНТ ==========
+client = None
+
+async def init_client():
+    """Инициализация клиента"""
     global client
     
+    # Проверяем файл сессии
+    session_file = 'genesis_session.session'
+    if not os.path.exists(session_file):
+        print(f"❌ ФАЙЛ СЕССИИ НЕ НАЙДЕН: {session_file}")
+        print("Создай: python -c \"from telethon import TelegramClient; import asyncio; async def f(): client=TelegramClient('genesis_session', {API_ID}, '{API_HASH}'); await client.start('{PHONE_NUMBER}'); print('✅ Сессия создана'); await client.disconnect(); asyncio.run(f())\"")
+        return False
+    
     try:
-        # Проверяем сессию
-        if not os.path.exists('genesis_session.session'):
-            print("❌ NO SESSION FILE!")
-            return False
-        
-        print("🔗 Подключаюсь к Telegram...")
-        
-        # Создаём клиент
-        client = TelegramClient('genesis_session', API_ID, API_HASH)
-        
-        # Запускаем как пользователь
+        client = TelegramClient(session_file, API_ID, API_HASH)
         await client.start(phone=PHONE_NUMBER)
-        
-        # Проверяем подключение
         me = await client.get_me()
-        print(f"✅ Connected as: @{me.username}")
-        print(f"📱 Phone: {me.phone}")
-        
+        print(f"✅ КЛИЕНТ ГОТОВ: @{me.username}")
         return True
-        
     except Exception as e:
-        print(f"❌ Connection failed: {e}")
+        print(f"❌ Ошибка: {e}")
         return False
 
-async def search_channels(keyword: str, limit: int = 15):
+async def real_search(keyword):
     """РЕАЛЬНЫЙ ПОИСК КАНАЛОВ"""
     try:
-        print(f"🔍 REAL SEARCH: '{keyword}'")
+        print(f"🔍 Ищу: '{keyword}'")
         
         # Telegram API поиск
         result = await client(functions.contacts.SearchRequest(
             q=keyword,
-            limit=limit
+            limit=15
         ))
-        
-        if not hasattr(result, 'chats'):
-            print("⚠️ No chats in result")
-            return []
         
         channels = []
         for chat in result.chats:
-            # Проверяем что это канал/группа
-            if not hasattr(chat, 'title'):
-                continue
-            
-            # Получаем информацию
-            channels.append({
-                'title': chat.title,
-                'username': getattr(chat, 'username', None),
-                'members': getattr(chat, 'participants_count', 0),
-                'id': chat.id,
-                'verified': getattr(chat, 'verified', False),
-                'type': 'channel' if getattr(chat, 'broadcast', False) else 'group'
-            })
+            if hasattr(chat, 'title'):
+                channels.append({
+                    'title': chat.title[:40],
+                    'username': getattr(chat, 'username', None),
+                    'members': getattr(chat, 'participants_count', 0),
+                    'id': chat.id
+                })
         
-        print(f"✅ Found {len(channels)} channels")
-        return channels[:limit]  # Ограничиваем
+        # Сортируем по количеству участников
+        channels.sort(key=lambda x: x['members'], reverse=True)
+        
+        print(f"✅ Найдено: {len(channels)} каналов")
+        return channels
         
     except Exception as e:
-        print(f"❌ Search error: {e}")
+        print(f"❌ Ошибка поиска: {e}")
         return None
 
-async def send_response(event, text: str):
-    """Отправка ответа без дублирования"""
-    try:
-        # Простая отправка
-        await event.respond(text)
-        print(f"📤 Sent to {event.sender_id}")
-        return True
-    except Exception as e:
-        print(f"❌ Send failed: {e}")
-        return False
-
 async def main():
-    """Основная функция"""
-    print("\n🎯 ИНИЦИАЛИЗАЦИЯ...")
+    """Главная функция"""
+    print("🎯 Запускаю бота...")
     
-    # Инициализируем клиент
-    if not await init_telegram():
-        print("❌ Не могу подключиться к Telegram")
+    # Инициализация клиента
+    if not await init_client():
+        print("❌ Не могу запустить")
         return
     
-    print("✅ Telegram client ready")
+    print("✅ Всё готово к работе")
     
-    # ========== ОБРАБОТЧИКИ ==========
+    # ========== КОМАНДЫ ==========
     
     @client.on(events.NewMessage(pattern='/start'))
-    async def handle_start(event):
-        """Обработчик /start"""
-        if event.is_group or event.is_channel:
+    async def start_cmd(event):
+        """Команда /start"""
+        if event.is_group:
             return
         
         user_id = event.sender_id
-        
-        # Проверка дублирования
-        if check_duplicate(user_id, 'start'):
+        if block_duplicate(user_id, 'start'):
             return
         
-        # Инициализируем пользователя
+        # Инициализация пользователя
         if user_id not in user_data:
-            user_data[user_id] = {'searches': 0}
+            user_data[user_id] = {'searches': 0, 'state': None}
         
         text = f"""
 🎯 GENESISW SEARCH BOT
 
 🔍 Реальный поиск каналов в Telegram
-📊 Поисков использовано: {user_data[user_id]['searches']}/{SEARCH_LIMIT}
+📊 Поисков: {user_data[user_id]['searches']}/{SEARCH_LIMIT}
 
 📋 КОМАНДЫ:
 /search - найти каналы
@@ -177,249 +137,208 @@ async def main():
 👑 Владелец: Gen Kai
 💎 Бот: @genesisw_bot
 """
-        await send_response(event, text)
+        await event.respond(text)
     
     @client.on(events.NewMessage(pattern='/search'))
-    async def handle_search(event):
-        """Обработчик /search"""
-        if event.is_group or event.is_channel:
+    async def search_cmd(event):
+        """Команда /search"""
+        if event.is_group:
             return
         
         user_id = event.sender_id
-        
-        # Проверка дублирования
-        if check_duplicate(user_id, 'search'):
+        if block_duplicate(user_id, 'search'):
             return
         
-        # Инициализируем если нет
+        # Инициализация если нет
         if user_id not in user_data:
-            user_data[user_id] = {'searches': 0}
+            user_data[user_id] = {'searches': 0, 'state': None}
         
-        # Проверяем лимит
+        # Проверка лимита
         if user_id not in admin_users and user_data[user_id]['searches'] >= SEARCH_LIMIT:
-            await send_response(event, 
-                f"❌ ЛИМИТ ИСЧЕРПАН!\n"
-                f"Использовано: {user_data[user_id]['searches']}/{SEARCH_LIMIT}\n\n"
-                f"💰 /premium - безлимитный доступ"
-            )
+            await event.respond(f"❌ Лимит! /premium")
             return
         
-        # Устанавливаем состояние
-        user_data[user_id]['state'] = 'awaiting_keyword'
-        
-        await send_response(event, "🔍 Введите ключевое слово для поиска:")
+        user_data[user_id]['state'] = 'searching'
+        await event.respond("🔍 Введите слово для поиска:")
     
     @client.on(events.NewMessage(pattern='/admin'))
-    async def handle_admin(event):
-        """Обработчик /admin"""
-        if event.is_group or event.is_channel:
+    async def admin_cmd(event):
+        """Команда /admin"""
+        if event.is_group:
             return
         
         user_id = event.sender_id
-        
-        # Проверка дублирования
-        if check_duplicate(user_id, 'admin'):
+        if block_duplicate(user_id, 'admin'):
             return
         
-        # Устанавливаем состояние
         if user_id not in user_data:
-            user_data[user_id] = {'searches': 0}
+            user_data[user_id] = {'searches': 0, 'state': None}
         
-        user_data[user_id]['state'] = 'awaiting_password'
-        
-        await send_response(event, "Пиздуй нахуй 😎\n\n🔐 Введите пароль админа:")
+        user_data[user_id]['state'] = 'admin_pass'
+        await event.respond("Пиздуй нахуй 😎\nПароль админа:")
     
     @client.on(events.NewMessage(pattern='/premium'))
-    async def handle_premium(event):
-        """Обработчик /premium"""
-        if event.is_group or event.is_channel:
+    async def premium_cmd(event):
+        """Команда /premium"""
+        if event.is_group:
             return
         
         user_id = event.sender_id
-        
-        # Проверка дублирования
-        if check_duplicate(user_id, 'premium'):
+        if block_duplicate(user_id, 'premium'):
             return
         
         text = f"""
 💰 ПРЕМИУМ ДОСТУП
 
-💎 Тарифы (USDT TRC20):
-🥉 BASIC - 10 USDT (30 дней)
-🥈 ADVANCED - 25 USDT (90 дней)
-🥇 PRO - 50 USDT (180 дней)
-👑 ULTIMATE - 100 USDT (ПОЖИЗНЕННО)
+💎 Тарифы (USDT):
+🥉 BASIC - 10 USDT
+🥈 ADVANCED - 25 USDT
+🥇 PRO - 50 USDT
+👑 ULTIMATE - 100 USDT
 
-💳 Кошелёк для оплаты:
+💳 Кошелёк:
 {CRYPTO_WALLET}
 
 📨 После оплаты отправьте хэш транзакции
 """
-        await send_response(event, text)
+        await event.respond(text)
     
     @client.on(events.NewMessage(pattern='/help'))
-    async def handle_help(event):
-        """Обработчик /help"""
-        if event.is_group or event.is_channel:
+    async def help_cmd(event):
+        """Команда /help"""
+        if event.is_group:
             return
         
         user_id = event.sender_id
-        
-        # Проверка дублирования
-        if check_duplicate(user_id, 'help'):
+        if block_duplicate(user_id, 'help'):
             return
         
         text = f"""
 🆘 ПОМОЩЬ
 
-📋 КОМАНДЫ:
-/start - информация о боте
-/search - поиск каналов
-/premium - премиум доступ
-/admin - админ панель
-/help - эта справка
+📋 Команды:
+/start - информация
+/search - поиск
+/premium - безлимит
+/admin - админка
+/help - справка
 
-🔍 КАК ИСКАТЬ:
-1. Отправьте /search
-2. Введите ключевое слово
-3. Получите результаты
-
-📊 ЛИМИТЫ:
-• Бесплатно: {SEARCH_LIMIT} поисков
-• Премиум: безлимит (/premium)
+📊 Лимиты:
+Бесплатно: {SEARCH_LIMIT} поисков
+Премиум: безлимит
 
 @genesisw_bot
 """
-        await send_response(event, text)
+        await event.respond(text)
     
     @client.on(events.NewMessage(pattern='/test'))
-    async def handle_test(event):
-        """Тестовая команда"""
-        if event.is_group or event.is_channel:
+    async def test_cmd(event):
+        """Тестовая команда /test"""
+        if event.is_group:
             return
         
         user_id = event.sender_id
-        
-        if check_duplicate(user_id, 'test'):
+        if block_duplicate(user_id, 'test'):
             return
         
-        await send_response(event, "🔧 Тестирую поиск...")
-        
-        # Тестовый поиск
-        channels = await search_channels("новости", 5)
+        await event.respond("🔧 Тестирую поиск...")
+        channels = await real_search("новости")
         
         if channels:
-            result = f"✅ ТЕСТ ПРОЙДЕН!\nНайдено: {len(channels)} каналов\n"
-            for ch in channels[:3]:
-                result += f"\n• {ch['title'][:30]}"
-            await send_response(event, result)
+            await event.respond(f"✅ Тест пройден! Найдено: {len(channels)} каналов")
         else:
-            await send_response(event, "❌ ТЕСТ НЕ ПРОЙДЕН")
+            await event.respond("❌ Тест не пройден")
     
-    # ========== ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ ==========
+    # ========== ОБРАБОТКА ТЕКСТА ==========
     
     @client.on(events.NewMessage)
-    async def handle_message(event):
+    async def message_handler(event):
         """Обработчик всех сообщений"""
-        if event.is_group or event.is_channel:
+        if event.is_group:
             return
         
         user_id = event.sender_id
         text = event.text.strip() if event.text else ""
         
-        # Пропускаем команды и пустые сообщения
         if not text or text.startswith('/'):
             return
         
-        # Проверяем дублирование для текстовых сообщений
-        msg_key = f"{user_id}_msg_{text[:10]}"
-        if msg_key in LAST_COMMANDS:
-            if time.time() - LAST_COMMANDS[msg_key] < 2:
-                return
+        # Блокировка дублирования текста
+        if block_duplicate(user_id, f"text_{text[:10]}"):
+            return
         
-        LAST_COMMANDS[msg_key] = time.time()
-        
-        # Проверяем состояние пользователя
+        # Проверка состояния пользователя
         if user_id not in user_data:
             return
         
-        user_state = user_data[user_id].get('state')
+        state = user_data[user_id].get('state')
         
         # Обработка пароля админа
-        if user_state == 'awaiting_password':
+        if state == 'admin_pass':
             if text == ADMIN_PASS:
                 admin_users.add(user_id)
                 user_data[user_id]['searches'] = 0
-                await send_response(event, "✅ АДМИН ДОСТУП АКТИВИРОВАН!")
+                await event.respond("✅ Админ доступ активирован!")
             else:
-                await send_response(event, "❌ НЕВЕРНЫЙ ПАРОЛЬ!")
-            
+                await event.respond("❌ Неверный пароль!")
             user_data[user_id]['state'] = None
             return
         
         # Обработка поискового запроса
-        if user_state == 'awaiting_keyword':
+        if state == 'searching':
             keyword = text.lower().strip()
             
             if len(keyword) < 2:
-                await send_response(event, "⚠️ Минимум 2 символа")
+                await event.respond("⚠️ Минимум 2 символа")
                 user_data[user_id]['state'] = None
                 return
             
-            await send_response(event, f"🔍 ИЩУ: '{keyword}'...")
+            await event.respond(f"🔍 Ищу: '{keyword}'...")
             
             # ВЫПОЛНЯЕМ РЕАЛЬНЫЙ ПОИСК
-            channels = await search_channels(keyword, 10)
+            channels = await real_search(keyword)
             
             if channels is None:
-                await send_response(event, "⚠️ Ошибка при поиске")
+                await event.respond("⚠️ Ошибка поиска")
             elif channels:
-                # Увеличиваем счётчик поисков
+                # Увеличиваем счётчик
                 if user_id not in admin_users:
                     user_data[user_id]['searches'] += 1
                 
                 # Формируем результат
-                result_text = f"✅ НАЙДЕНО: {len(channels)} каналов\n\n"
-                
+                result = f"✅ Найдено {len(channels)} каналов:\n\n"
                 for i, ch in enumerate(channels[:5], 1):
-                    name = ch['title'][:35]
                     username = f"@{ch['username']}" if ch['username'] else "без @"
                     members = f"{ch['members']:,}" if ch['members'] > 0 else "?"
-                    
-                    result_text += f"{i}. {name}\n"
-                    result_text += f"   👥 {members} | {username}\n\n"
+                    result += f"{i}. {ch['title']}\n"
+                    result += f"   👥 {members} | {username}\n\n"
                 
                 if len(channels) > 5:
-                    result_text += f"📊 ... и ещё {len(channels)-5} каналов"
+                    result += f"... и ещё {len(channels)-5} каналов"
                 
-                # Добавляем информацию о лимитах
-                if user_id not in admin_users:
-                    used = user_data[user_id]['searches']
-                    result_text += f"\n\n📈 Ваш лимит: {used}/{SEARCH_LIMIT}"
-                
-                await send_response(event, result_text)
+                await event.respond(result)
             else:
-                await send_response(event, f"❌ По запросу '{keyword}' ничего не найдено")
+                await event.respond(f"❌ По '{keyword}' ничего не найдено")
             
-            # Сбрасываем состояние
             user_data[user_id]['state'] = None
             return
     
-    print("\n" + "="*70)
-    print("🤖 БОТ УСПЕШНО ЗАПУЩЕН И ГОТОВ К РАБОТЕ!")
-    print("✅ Дублирование сообщений: ЗАБЛОКИРОВАНО")
-    print("✅ Реальный поиск: АКТИВИРОВАН")
-    print("📞 Отправьте /start в Telegram")
-    print("🔧 Тест: /test")
-    print("="*70 + "\n")
+    # ========== ЗАПУСК ==========
     
-    # Запускаем
+    print("\n" + "="*70)
+    print("🤖 БОТ ЗАПУЩЕН И ГОТОВ!")
+    print("✅ Дублирование: ЗАБЛОКИРОВАНО")
+    print("✅ Поиск: АКТИВИРОВАН")
+    print("📞 Отправь /start в Telegram")
+    print("="*70)
+    
+    # Бесконечный цикл
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n🛑 Остановлен пользователем")
+        print("\n🛑 Остановлен")
     except Exception as e:
-        print(f"\n💀 КРИТИЧЕСКАЯ ОШИБКА: {e}")
+        print(f"\n❌ Ошибка: {e}")
