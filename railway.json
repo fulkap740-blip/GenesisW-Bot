@@ -1,3 +1,11 @@
-git add railway.json
-git commit -m "Add railway config"
-git push origin main
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "NIXPACKS"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE"
+  },
+  "files": ["genesis_session.session"]
+}
