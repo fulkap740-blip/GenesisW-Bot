@@ -15,7 +15,7 @@ from telethon.tl.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ========== КОНФИГ ==========
 API_ID = int(os.environ.get("API_ID", "22446695"))
-API_HASH = os.environ.get("API_HASH", "64587d7e1431a0d7e1959387faa4958a"))
+API_HASH = os.environ.get("API_HASH", "64587d7e1431a0d7e1959387faa4958a")
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8576112278:AAE35GWqoHpsQ9bdB069f__LDShXkNeHXro")
 PHONE_NUMBER = os.environ.get("PHONE_NUMBER", "+996706161234")
 
