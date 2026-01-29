@@ -13,7 +13,7 @@ from telethon import TelegramClient, events, functions
 # ========== КОНФИГ ==========
 API_ID = int(os.environ.get("API_ID", "22446695"))
 API_HASH = os.environ.get("API_HASH", "64587d7e1431a0d7e1959387faa4958a")
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8576112278:AAE35GWqoHpsQ9bdB069f__LDShXkNeHXro"))
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8576112278:AAE35GWqoHpsQ9bdB069f__LDShXkNeHXro")
 ADMIN_ID = 6902281947  # Твой ID - ВИП статус
 CRYPTO_WALLET = "TKMBNpspKG6uQZi8J9siyChhX6BrZJnJr7"
 SEARCH_LIMIT = 20
